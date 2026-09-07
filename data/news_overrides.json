@@ -1,0 +1,85 @@
+{
+  "_README": [
+    "Hand-curated adjustments for information the statistical feeds lag on.",
+    "Every field is optional; only include what you actually want to change.",
+    "",
+    "  name                  must match the player's name in the projection feed",
+    "  availability          expected share of the season active, 0..1",
+    "                        (overrides the injury/position model entirely)",
+    "  games_missed          alternative to availability, expressed in games out of 17",
+    "  points_multiplier     scales the projected season total (role/usage news)",
+    "  volatility_multiplier scales outcome spread (raises ceiling AND floor risk)",
+    "  tag                   free label shown on the board: injury / sleeper / fade",
+    "  note                  one line of reasoning, printed next to the player",
+    "",
+    "IMPORTANT: the projection feed already prices in known injuries - a back on",
+    "IR is projected far below his healthy rate - so only override when you",
+    "believe the feed is actually wrong or stale. Re-check before draft day."
+  ],
+  "_updated": "2026-09-07",
+  "players": [
+    {
+      "name": "Breece Hall",
+      "availability": 0.76,
+      "points_multiplier": 0.94,
+      "tag": "injury",
+      "note": "Groin injury Aug 18, told to miss 2-3 weeks of practice; Week 1 in doubt"
+    },
+    {
+      "name": "TreVeyon Henderson",
+      "availability": 0.78,
+      "points_multiplier": 0.93,
+      "tag": "injury",
+      "note": "Ankle; has not practiced since Aug 24, Week 1 status unresolved"
+    },
+    {
+      "name": "Jeremiyah Love",
+      "availability": 0.77,
+      "points_multiplier": 0.95,
+      "tag": "injury",
+      "note": "Preseason ankle; beat reporters put Week 1 at roughly 50/50"
+    },
+    {
+      "name": "Isiah Pacheco",
+      "availability": 0.72,
+      "tag": "injury",
+      "note": "MCL sprain plus a back issue; Week 1 in question"
+    },
+    {
+      "name": "Jonathon Brooks",
+      "availability": 0.80,
+      "volatility_multiplier": 1.15,
+      "tag": "sleeper",
+      "note": "Knee soreness but Canales 'very optimistic' for Week 1; three-down upside at an ADP near 125"
+    },
+    {
+      "name": "Jacory Croskey-Merritt",
+      "availability": 0.85,
+      "tag": "injury",
+      "note": "Minor groin; expected to play Week 1 vs PHI"
+    },
+    {
+      "name": "Jared Goff",
+      "tag": "value",
+      "note": "QB1 finish in four straight seasons, still drafted outside that range"
+    },
+    {
+      "name": "Jordan Mason",
+      "volatility_multiplier": 1.2,
+      "tag": "sleeper",
+      "note": "Widely listed as a priority late-round insurance back"
+    },
+    {
+      "name": "Josh Downs",
+      "volatility_multiplier": 1.15,
+      "tag": "sleeper",
+      "note": "Recurring name on mid-to-late round target lists"
+    },
+    {
+      "name": "Isaiah Likely",
+      "volatility_multiplier": 1.2,
+      "tag": "sleeper",
+      "note": "Late-round TE with starter-level upside if the role expands"
+    }
+  ]
+}

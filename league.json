@@ -1,0 +1,50 @@
+{
+  "name": "Frat League (15-team full PPR)",
+  "teams": 15,
+  "rounds": 15,
+  "season": 2026,
+  "weeks": 17,
+  "playoff_weeks": [
+    15,
+    16,
+    17
+  ],
+  "playoff_weight": 1.6,
+  "scoring": {
+    "pass_yd": 0.04,
+    "pass_td": 4.0,
+    "pass_int": -2.0,
+    "pass_2pt": 2.0,
+    "rush_yd": 0.1,
+    "rush_td": 6.0,
+    "rush_2pt": 2.0,
+    "rec": 1.0,
+    "rec_yd": 0.1,
+    "rec_td": 6.0,
+    "rec_2pt": 2.0,
+    "fum_lost": -2.0,
+    "rec_bonus_rb": 0.0,
+    "rec_bonus_wr": 0.0,
+    "rec_bonus_te": 0.0
+  },
+  "roster": {
+    "qb": 1,
+    "rb": 2,
+    "wr": 3,
+    "te": 1,
+    "flex": 1,
+    "superflex": 0,
+    "k": 1,
+    "dst": 1,
+    "bench": 5,
+    "max_qb": 3,
+    "max_te": 3,
+    "max_k": 1,
+    "max_dst": 2
+  },
+  "market_weight": 0.35,
+  "ffc_adp_weight": 0.6,
+  "sleeper_adp_weight": 0.4,
+  "adp_noise_scale": 1.15,
+  "team_bias_share": 0.6
+}
