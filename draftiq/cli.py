@@ -132,6 +132,100 @@ def cmd_odds(args) -> int:
     return 0
 
 
+def _apply_taken(board: Board, sim: DraftSimulator, config: LeagueConfig,
+                 state: DraftState, names: List[str], my_slot: int,
+                 mine: List[str]) -> List[str]:
+    """Replay a list of drafted names into a draft state.
+
+    Picks are attributed by snake order; `mine` force-assigns players to us for
+    when the transcript and the real draft have drifted. Names that cannot be
+    resolved are returned so they can be reported loudly - a missed pick leaves
+    a drafted player on the board and can poison the recommendation.
+    """
+    problems: List[str] = []
+    forced = set()
+    for raw in mine:
+        player, alts = board.resolve(raw)
+        if player is None:
+            problems.append(f"{raw!r} (yours): " + (
+                "ambiguous - " + ", ".join(a.label for a in alts) if alts
+                else "no match"))
+            continue
+        forced.add(player.key)
+
+    for raw in names:
+        player, alts = board.resolve(raw)
+        if player is None:
+            problems.append(f"{raw!r}: " + (
+                "ambiguous - " + ", ".join(a.label for a in alts) if alts
+                else "no match"))
+            continue
+        idx = sim.index(player)
+        if idx is None or idx in state.taken:
+            problems.append(f"{raw!r}: already recorded, skipped")
+            continue
+        slot = my_slot if player.key in forced else config.slot_for_pick(state.next_pick)
+        state.record(idx, slot)
+    return problems
+
+
+def cmd_advise(args) -> int:
+    """One-shot advice from a full list of who is off the board."""
+    config, board, recommender = _setup(args)
+    sim = recommender.sim
+    state = DraftState(config)
+
+    taken = [t.strip() for t in (args.taken or "").split(",") if t.strip()]
+    mine = [t.strip() for t in (args.mine or "").split(",") if t.strip()]
+    if args.taken_file:
+        taken += [ln.strip() for ln in Path(args.taken_file).read_text().splitlines()
+                  if ln.strip() and not ln.startswith("#")]
+
+    problems = _apply_taken(board, sim, config, state, taken, args.slot, mine)
+    if problems:
+        print("!! UNRESOLVED - fix these, the board may be wrong:")
+        for p in problems:
+            print(f"   {p}")
+        print()
+
+    roster = [sim.player(i) for i in state.roster_of(args.slot)]
+    counts: dict = {}
+    for p in roster:
+        counts[p.position] = counts.get(p.position, 0) + 1
+    need = {pos: n - counts.get(pos, 0)
+            for pos, n in config.roster.required_slots().items()
+            if n - counts.get(pos, 0) > 0}
+
+    print(f"{len(state.order)} players off the board. "
+          f"Pick {state.next_pick} (round {state.current_round}) is "
+          f"{'YOURS' if config.slot_for_pick(state.next_pick) == args.slot else 'slot ' + str(config.slot_for_pick(state.next_pick))}.")
+    print(f"\nYour roster ({len(roster)}):")
+    for p in sorted(roster, key=lambda p: (p.position, -p.vor)):
+        print(f"   {p.position}{p.pos_rank:<4} {p.name:24s} bye {p.bye or '?':<3} "
+              f"proj {p.points:.0f}")
+    if roster:
+        value = recommender.evaluator.evaluate(roster)
+        print(f"   projected startable points: {value.mean:.0f} "
+              f"({value.floor:.0f}-{value.ceiling:.0f})")
+    print(f"   still need: {need or 'starters full'}")
+
+    try:
+        rec = recommender.recommend(state, args.slot, sims=args.sims, width=args.width)
+    except ValueError as exc:
+        print(f"\n{exc}")
+        return 1
+
+    turn = "  (back-to-back picks - you can take two)" if rec.back_to_back else ""
+    print(f"\nRECOMMENDATION for pick {rec.pick} (round {rec.round}){turn}")
+    for i, c in enumerate(rec.candidates[:args.top], 1):
+        flag = "=>" if i == 1 else "  "
+        print(f" {flag} {c.value:7.0f} ({c.delta:+6.1f})  {c.player.label:30s} "
+              f"T{c.player.tier} ADP {c.player.adp:5.1f}")
+        if c.reason:
+            print(f"           {c.reason}")
+    return 0
+
+
 def cmd_live(args) -> int:
     """Interactive draft-day board. Mark picks as they happen, get advice."""
     config, board, recommender = _setup(args)
@@ -328,6 +422,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--rounds", type=int, default=6)
     p.add_argument("--limit", type=int, default=40)
     p.set_defaults(func=cmd_odds)
+
+    p = sub.add_parser("advise", help="one-shot advice from the full drafted list")
+    p.add_argument("--slot", type=int, required=True)
+    p.add_argument("--taken", default="", help="comma-separated, in draft order")
+    p.add_argument("--taken-file", help="one name per line, in draft order")
+    p.add_argument("--mine", default="", help="comma-separated, force onto your roster")
+    p.add_argument("--sims", type=int, default=100)
+    p.add_argument("--width", type=int, default=12)
+    p.add_argument("--top", type=int, default=6)
+    p.set_defaults(func=cmd_advise)
 
     p = sub.add_parser("live", help="interactive draft-day assistant")
     p.add_argument("--slot", type=int, required=True)

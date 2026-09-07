@@ -16,6 +16,7 @@ Pipeline
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
@@ -40,6 +41,15 @@ _TIER_SHRINK = 0.45
 # Floor on the share of the season used to convert a season total into a
 # per-game rate, so a heavily-injured player doesn't get an implausible ppg.
 _MIN_ACTIVE_SHARE = 0.40
+
+# Team and position tokens draft boards append to a player's name.
+_NAME_NOISE_TOKENS = {
+    "QB", "RB", "WR", "TE", "K", "PK", "DEF", "DST", "D/ST", "FA",
+    "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE", "DAL", "DEN",
+    "DET", "GB", "HOU", "IND", "JAX", "JAC", "KC", "LV", "LAC", "LAR",
+    "MIA", "MIN", "NE", "NO", "NYG", "NYJ", "PHI", "PIT", "SF", "SEA",
+    "TB", "TEN", "WAS", "WSH", "IR", "O", "Q", "D", "P", "SSPD",
+}
 
 
 @dataclass
@@ -180,6 +190,74 @@ class Board:
         hits = [p for p in self.players if norm in sources.normalize_name(p.name)]
         hits.sort(key=lambda p: -p.vor)
         return hits[:limit]
+
+    def resolve(self, text: str,
+                exclude: Optional[set] = None) -> tuple[Optional["Player"], List["Player"]]:
+        """Best-effort match for a name copied off a draft board.
+
+        Screenshots and draft rooms render names every possible way -
+        "Jahmyr Gibbs", "J. Gibbs", "Gibbs DET RB", "Ravens D/ST". This walks
+        progressively looser strategies and stops at the first that gives a
+        single answer, returning (match, alternatives) so an ambiguous name can
+        be reported rather than silently guessed.
+        """
+        exclude = exclude or set()
+        pool = [p for p in self.players if id(p) not in exclude]
+
+        raw = text.strip()
+        if not raw:
+            return None, []
+
+        # Team defenses: strip the D/ST marker and match on the nickname.
+        cleaned = re.sub(r"\b(d/?st|def|defense)\b", " ", raw, flags=re.I)
+        is_defense = cleaned.strip().lower() != raw.strip().lower()
+        if is_defense:
+            pool = [p for p in pool if p.position == "DEF"]
+            raw = cleaned
+
+        # Drop trailing team and position tokens ESPN appends to a name.
+        tokens = [t for t in re.split(r"[\s,]+", raw) if t]
+        while tokens and tokens[-1].upper() in _NAME_NOISE_TOKENS:
+            tokens.pop()
+        norm = sources.normalize_name(" ".join(tokens))
+        if not norm:
+            return None, []
+
+        def unique(hits: List["Player"]):
+            hits = sorted(hits, key=lambda p: -p.vor)
+            if len(hits) == 1:
+                return hits[0], []
+            return None, hits
+
+        # 1. exact full name
+        hit, alts = unique([p for p in pool
+                            if sources.normalize_name(p.name) == norm])
+        if hit:
+            return hit, []
+
+        # 2. substring anywhere in the name
+        subs = [p for p in pool if norm in sources.normalize_name(p.name)]
+        hit, alts = unique(subs)
+        if hit:
+            return hit, []
+
+        parts = norm.split()
+        last = parts[-1]
+
+        # 3. surname match, optionally narrowed by a leading initial
+        surname = [p for p in pool
+                   if sources.normalize_name(p.name).split()[-1] == last]
+        if len(parts) > 1:
+            initial = parts[0][0]
+            narrowed = [p for p in surname
+                        if sources.normalize_name(p.name)[0] == initial]
+            if narrowed:
+                surname = narrowed
+        hit, more = unique(surname)
+        if hit:
+            return hit, []
+
+        return None, (alts or more)[:6]
 
     def by_position(self, position: str) -> List[Player]:
         return [p for p in self.players if p.position == position]

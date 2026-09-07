@@ -417,6 +417,38 @@ class TestRealBoardIntegration(unittest.TestCase):
             active = self.cfg.weeks * max(p.availability, 0.40)
             self.assertAlmostEqual(p.ppg * active, p.points, places=3)
 
+    def test_resolve_handles_draft_board_formatting(self):
+        cases = {
+            "Jahmyr Gibbs": "Jahmyr Gibbs",
+            "J. Gibbs": "Jahmyr Gibbs",
+            "Gibbs DET RB": "Jahmyr Gibbs",
+            "A. St. Brown": "Amon-Ra St. Brown",
+            "Ja'Marr Chase": "Ja'Marr Chase",
+            "Chase Brown CIN RB": "Chase Brown",
+            "Bijan Robinson Atl RB Q": "Bijan Robinson",
+        }
+        for text, expected in cases.items():
+            player, _ = self.board.resolve(text)
+            self.assertIsNotNone(player, text)
+            self.assertEqual(player.name, expected, text)
+
+    def test_resolve_matches_team_defenses(self):
+        for text in ("Ravens D/ST", "Baltimore D/ST"):
+            player, _ = self.board.resolve(text)
+            self.assertIsNotNone(player, text)
+            self.assertEqual(player.position, "DEF")
+            self.assertEqual(player.team, "BAL")
+
+    def test_resolve_reports_ambiguity_instead_of_guessing(self):
+        player, alts = self.board.resolve("McCaffrey")
+        self.assertIsNone(player)
+        self.assertGreater(len(alts), 1)
+
+    def test_resolve_returns_nothing_for_junk(self):
+        player, alts = self.board.resolve("Zzz Nobody")
+        self.assertIsNone(player)
+        self.assertEqual(alts, [])
+
     def test_recommendation_only_offers_reachable_players(self):
         from draftiq.recommend import Recommender
         rec = Recommender(self.board, self.cfg, seed=3)
